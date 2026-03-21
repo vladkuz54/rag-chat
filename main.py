@@ -5,7 +5,7 @@ from pprint import pprint
 from workflow import app
 
 inputs = {
-    "question": "Як звязатися з підтримкою?",
+    "question": "some question",
     "counter": 0,
     "transform_counter": 0,
 }

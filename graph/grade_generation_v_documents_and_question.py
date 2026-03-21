@@ -23,10 +23,8 @@ def grade_generation_v_documents_and_question(state):
     )
     grade = score.binary_score
 
-    # Check hallucination
     if grade == "yes":
         print("---DECISION: GENERATION IS GROUNDED IN DOCUMENTS---")
-        # Check question-answering
         print("---GRADE GENERATION vs QUESTION---")
         score = answer_grader.invoke({"question": question, "generation": generation})
         grade = score.binary_score

@@ -16,10 +16,12 @@ def generate_unknown(state):
     counter = state.get("counter", 0)
     transform_counter = state.get("transform_counter", 0)
     response = response_generator.invoke({"question": question, "context": ""})
+    query_variations = state.get("query_variations", [])
     return {
         "question": question,
         "documents": documents,
         "generation": response,
         "counter": counter,
         "transform_counter": transform_counter,
+        "query_variations": query_variations,
     }

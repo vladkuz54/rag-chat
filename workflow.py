@@ -10,14 +10,13 @@ from langgraph.graph import END, StateGraph, START
 
 workflow = StateGraph(GraphState)
 
-# Define the nodes
-workflow.add_node("retrieve", retrieve)  # retrieve
-workflow.add_node("grade_documents", grade_documents)  # grade documents
-workflow.add_node("generate", generate)  # generate
-workflow.add_node("transform_query", transform_query)  # transform_query
-workflow.add_node("unknown", generate_unknown)  # return unknown answer
+workflow.add_node("retrieve", retrieve) 
+workflow.add_node("grade_documents", grade_documents) 
+workflow.add_node("generate", generate)  
+workflow.add_node("transform_query", transform_query)  
+workflow.add_node("unknown", generate_unknown) 
 
-# Build graph
+
 workflow.add_edge(START, "retrieve")
 workflow.add_edge("retrieve", "grade_documents")
 workflow.add_conditional_edges(
@@ -42,5 +41,5 @@ workflow.add_conditional_edges(
 )
 workflow.add_edge("unknown", END)
 
-# Compile
+
 app = workflow.compile()

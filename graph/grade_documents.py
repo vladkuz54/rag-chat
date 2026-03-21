@@ -17,7 +17,6 @@ def grade_documents(state):
     counter = state.get("counter", 0)
     transform_counter = state.get("transform_counter", 0)
 
-    # Score each doc
     filtered_docs = []
     for d in documents:
         score = retrieval_grader.invoke(
@@ -30,9 +29,11 @@ def grade_documents(state):
         else:
             print("---GRADE: DOCUMENT NOT RELEVANT---")
             continue
+    query_variations = state.get("query_variations", [])
     return {
         "documents": filtered_docs,
         "question": question,
         "counter": counter,
         "transform_counter": transform_counter,
+        "query_variations": query_variations,
     }

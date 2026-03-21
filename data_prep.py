@@ -2,6 +2,7 @@ import os
 import chromadb
 import chromadb.utils.embedding_functions as embedding_functions
 from langchain_community.document_loaders import TextLoader, Docx2txtLoader, PyPDFLoader
+from graph.hybrid_search import get_hybrid_searcher
 
 openai_ef = embedding_functions.OpenAIEmbeddingFunction(
     api_key_env_var="OPENAI_API_KEY",
@@ -10,8 +11,8 @@ openai_ef = embedding_functions.OpenAIEmbeddingFunction(
 
 client = chromadb.PersistentClient(path="./chroma_db")
 
-# Global retriever (will be set when files are uploaded in chat)
 _global_retriever = None
+_global_documents = []
 
 def set_retriever(retriever):
     """Set the global retriever"""
@@ -24,6 +25,27 @@ def get_retriever():
     if _global_retriever is None:
         raise RuntimeError("Retriever not initialized. Please upload documents first.")
     return _global_retriever
+
+
+def set_documents_for_bm25(documents):
+    """
+    Set documents for BM25 indexing (keyword search).
+    
+    Args:
+        documents: List of Document objects to index
+    """
+    global _global_documents
+    _global_documents = documents
+    
+ 
+    hybrid_searcher = get_hybrid_searcher()
+    hybrid_searcher.build_bm25_index(documents)
+
+
+def get_documents_for_bm25():
+    """Get the stored documents for BM25 indexing."""
+    global _global_documents
+    return _global_documents
 
 
 def load_documents(file_path: str):

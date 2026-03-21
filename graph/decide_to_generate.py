@@ -24,6 +24,5 @@ def decide_to_generate(state):
         )
         return "transform_query"
     else:
-        # We have relevant documents, so generate answer
         print("---DECISION: GENERATE---")
         return "generate"

@@ -17,11 +17,11 @@ def transform_query(state):
     counter = state.get("counter", 0)
     transform_counter = state.get("transform_counter", 0) + 1
 
-    # Re-write question
     better_question = question_rewriter.invoke({"question": question})
     return {
         "documents": documents,
         "question": better_question,
         "counter": counter,
         "transform_counter": transform_counter,
+        "query_variations": [],
     }

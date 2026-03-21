@@ -1,10 +1,9 @@
 import chainlit as cl
-import os
 import shutil
 from pathlib import Path
 from dotenv import load_dotenv
 from workflow import app
-from data_prep import load_documents, client, set_retriever
+from data_prep import load_documents, client, set_retriever, set_documents_for_bm25
 from langchain_community.vectorstores import Chroma
 from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -14,7 +13,7 @@ load_dotenv()
 DATA_FOLDER = Path("./data")
 DATA_FOLDER.mkdir(exist_ok=True)
 
-# Initialize Chroma collection
+
 openai_embedding = OpenAIEmbeddings(model="text-embedding-3-small")
 
 
@@ -23,10 +22,10 @@ async def start():
     """Initialize chat session"""
     cl.user_session.set("chat_history", [])
     await cl.Message(
-        content="👋 Привіт! Я RAG чат-бот. Ви можете:\n"
-                "1. **Завантажити файли** (PDF, TXT, MD, DOCX) - вони будуть обробленні й збережені в базу\n"
-                "2. **Задати питання** - я знайду відповідь у завантажених документах\n\n"
-                "Почніть з завантаження документів!"
+        content="👋 Hello! I am a RAG chatbot. You can:\n"
+                "1. **Upload files** (PDF, TXT, MD, DOCX) - they will be processed and stored in the database\n"
+                "2. **Ask questions** - I will find answers in the uploaded documents\n\n"
+                "Start by uploading some documents!"
     ).send()
 
 
@@ -34,14 +33,13 @@ async def start():
 async def on_message(msg: cl.Message):
     """Handle user messages and file uploads"""
     
-    # Handle file uploads
+   
     if msg.elements:
         for element in msg.elements:
             if isinstance(element, cl.File):
                 await process_uploaded_file(element)
         return
-    
-    # Handle text questions
+  
     if msg.content and msg.content.strip():
         await answer_question(msg.content)
 
@@ -49,36 +47,36 @@ async def on_message(msg: cl.Message):
 async def process_uploaded_file(file_element: cl.File):
     """Process uploaded file and store in Chroma DB"""
     try:
-        # Create a loading message
+      
         processing_msg = await cl.Message(
-            content=f"📄 Обробляю файл: {file_element.name}..."
+            content=f"📄 Processing file: {file_element.name}..."
         ).send()
         
-        # Save file to data folder
+    
         file_path = DATA_FOLDER / file_element.name
         
-        # Copy uploaded file to data folder
+      
         with open(file_element.path, "rb") as src:
             with open(file_path, "wb") as dst:
                 shutil.copyfileobj(src, dst)
         
-        await cl.Message(content=f"✅ Файл збережено: {file_path}").send()
+        await cl.Message(content=f"✅ File saved: {file_path}").send()
         
-        # Load and process document
-        processing_msg.content = f"🔄 Обробляю документ: {file_element.name}..."
+       
+        processing_msg.content = f"🔄 Processing document: {file_element.name}..."
         await processing_msg.update()
         
         documents = load_documents(str(file_path))
         
-        # Split documents into chunks
+      
         text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
-            chunk_size=250,
+            chunk_size=500,
             chunk_overlap=50,
             separators=["\n\n", "\n", ". ", " "]
         )
         doc_splits = text_splitter.split_documents(documents)
         
-        # Store in Chroma DB
+       
         vector_store = Chroma.from_documents(
             documents=doc_splits,
             collection_name="rag",
@@ -86,69 +84,85 @@ async def process_uploaded_file(file_element: cl.File):
             embedding=openai_embedding
         )
         
-        # Create and set the retriever globally
-        retriever = vector_store.as_retriever(search_kwargs={"k": 3})
+
+        retriever = vector_store.as_retriever(search_kwargs={"k": 5})
         set_retriever(retriever)
         
+  
+        set_documents_for_bm25(doc_splits)
+        
         await cl.Message(
-            content=f"✅ Документ обраний! Додано {len(doc_splits)} фрагментів до бази.\n\n"
-                    f"📊 Деталі:\n"
-                    f"- Оригінальні документи: {len(documents)}\n"
-                    f"- Фрагменти: {len(doc_splits)}"
+            content=f"✅ Document processed! Added {len(doc_splits)} chunks to the database.\n\n"
+                    f"📊 Details:\n"
+                    f"- Original documents: {len(documents)}\n"
+                    f"- Chunks: {len(doc_splits)}\n"
+                    f"- 🔍 Hybrid search activated (BM25 + Vector)"
         ).send()
         
-        # Remove processing message
+
         processing_msg.content = ""
         await processing_msg.update()
         
     except FileNotFoundError as e:
-        await cl.Message(content=f"❌ Помилка: Файл не знайдено - {str(e)}").send()
+        await cl.Message(content=f"❌ Error: File not found - {str(e)}").send()
     except ValueError as e:
-        await cl.Message(content=f"❌ Помилка: Невідомий формат файлу - {str(e)}").send()
+        await cl.Message(content=f"❌ Error: Unknown file format - {str(e)}").send()
     except Exception as e:
-        await cl.Message(content=f"❌ Помилка при обробці файлу: {str(e)}").send()
+        await cl.Message(content=f"❌ Error processing file: {str(e)}").send()
 
 
 async def answer_question(question: str):
-    """Answer user question using the RAG workflow"""
+    """Answer user question using the RAG workflow with Multi-Query Retrieval"""
     try:
-        # Create a loading message
+     
         answer_msg = await cl.Message(
-            content=f"🔍 Шукаю відповідь на питання: \"{question}\"..."
+            content=f"🔍 Searching for answer to question: \"{question}\"..."
         ).send()
         
-        # Run the workflow
+
         inputs = {
             "question": question,
             "counter": 0,
             "transform_counter": 0,
+            "query_variations": [],
         }
         
-        # Stream through the workflow
+  
         final_output = None
         for output in app.stream(inputs):
             for key, value in output.items():
                 final_output = value
         
-        # Extract the generation from final output
+ 
         if final_output and "generation" in final_output:
             generation = final_output["generation"]
             counter = final_output.get("counter", 0)
             transform_counter = final_output.get("transform_counter", 0)
+            query_variations = final_output.get("query_variations", [])
             
-            # Update the message with the answer
+         
+            variations_text = ""
+            if query_variations:
+                variations_text = "**🔍 Query Variations (Multi-Query Retrieval):**\n"
+                for i, var in enumerate(query_variations, 1):
+                    variations_text += f"{i}. {var}\n"
+                variations_text += "\n"
+            
+   
             answer_msg.content = (
-                f"💡 **Відповідь:**\n\n{generation}\n\n"
+                f"💡 **Answer:**\n\n{generation}\n\n"
                 f"---\n"
-                f"📊 Деталі обробки:\n"
-                f"- Генерацій: {counter}\n"
-                f"- Трансформацій запиту: {transform_counter}"
+                f"{variations_text}"
+                f"📊 Processing Details:\n"
+                f"- Generations: {counter}\n"
+                f"- Query Transformations: {transform_counter}\n"
+                f"- Query Variations: {len(query_variations)}"
             )
         else:
-            answer_msg.content = "❌ Не вдалося отримати відповідь."
+            answer_msg.content = "❌ Failed to retrieve an answer."
         
         await answer_msg.update()
         
     except Exception as e:
-        await cl.Message(content=f"❌ Помилка при обробці питання: {str(e)}").send()
+        await cl.Message(content=f"❌ Error processing question: {str(e)}").send()
 

@@ -16,12 +16,13 @@ def generate(state):
     counter = state.get("counter", 0) + 1
     transform_counter = state.get("transform_counter", 0)
 
-    # RAG generation
     generation = rag_chain.invoke({"context": format_docs(documents), "question": question})
+    query_variations = state.get("query_variations", [])
     return {
         "documents": documents,
         "question": question,
         "generation": generation,
         "counter": counter,
         "transform_counter": transform_counter,
+        "query_variations": query_variations,
     }

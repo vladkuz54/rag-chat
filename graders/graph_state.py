@@ -11,6 +11,7 @@ class GraphState(TypedDict):
         documents: list of documents
         counter: generation attempts counter
         transform_counter: query transform attempts counter
+        query_variations: list of query variations for multi-query retrieval
     """
 
     question: str
@@ -18,3 +19,4 @@ class GraphState(TypedDict):
     documents: List[Any]
     counter: int
     transform_counter: int
+    query_variations: List[str]
