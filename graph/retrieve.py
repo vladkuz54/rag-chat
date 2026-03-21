@@ -1,4 +1,4 @@
-from data_prep import retriever
+from data_prep import get_retriever
 
 def retrieve(state):
     """
@@ -15,6 +15,9 @@ def retrieve(state):
     counter = state.get("counter", 0)
     transform_counter = state.get("transform_counter", 0)
 
+    # Get the retriever
+    retriever = get_retriever()
+    
     # Retrieval
     documents = retriever.invoke(question)
     return {

@@ -209,3 +209,4 @@ data/
 chroma_db
 .chainlit/
 chainlit.md
+.files
