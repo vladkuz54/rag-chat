@@ -201,8 +201,7 @@ rag-chat/
 ├── data/                            # Uploaded documents folder
 ├── .env                             # Environment variables
 ├── requirements.txt                 # Python dependencies
-├── README.md                        # Ukrainian documentation
-├── README_EN.md                     # This file
+├── README.md                     # This file
 ├── HYBRID_SEARCH.md                 # Hybrid search details
 └── MULTI_QUERY_RETRIEVAL.md         # Multi-query details
 ```
