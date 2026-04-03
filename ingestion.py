@@ -31,4 +31,4 @@ retriever = Chroma(
     collection_name="rag-data",
     persist_directory="./chroma_db",
     embedding_function=OpenAIEmbeddings(),
-)
+).as_retriever()
