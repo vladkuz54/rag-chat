@@ -21,7 +21,7 @@ doc_splits = text_splitter.split_documents(docs_list)
 
 # vector_store = Chroma.from_documents(
 #     documents=doc_splits,
-#     persist_directory="./.chroma_db",
+#     persist_directory="./chroma_db",
 #     embedding=OpenAIEmbeddings(),
 #     collection_name="rag-data"
 # )
@@ -29,6 +29,6 @@ doc_splits = text_splitter.split_documents(docs_list)
 
 retriever = Chroma(
     collection_name="rag-data",
-    persist_directory="./.chroma_db",
+    persist_directory="./chroma_db",
     embedding_function=OpenAIEmbeddings(),
 )
