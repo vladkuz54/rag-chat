@@ -4,7 +4,7 @@ from graph.chains.retrieval_grader import retrieval_grader_chain
 from graph.state import GraphState
 
 
-def grade_answer(state: GraphState) -> Dict[str, Any]:
+def grade_documents(state: GraphState) -> Dict[str, Any]:
     """
     Determines whether the retrieved documents are relevant to the question
     If any document is not relevant, we will set a flag to run web search
