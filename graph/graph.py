@@ -59,14 +59,17 @@ workflow.add_node(WEB_SEARCH, web_search)
 workflow.add_node(GENERATE, generate)
 
 workflow.set_entry_point(RETRIEVE)
-
 workflow.add_edge(RETRIEVE, GRADE_DOCUMENTS)
 workflow.add_conditional_edges(
     GRADE_DOCUMENTS,
     decide_to_generate,
+    path_map={WEB_SEARCH: WEB_SEARCH, GENERATE: GENERATE},
+)
+workflow.add_conditional_edges(
+    GENERATE,
+    grade_generation_grounded_in_documents_and_question,
     path_map={"useful": END, "not useful": WEB_SEARCH, "not supported": GENERATE},
 )
-
 workflow.add_edge(WEB_SEARCH, GENERATE)
 workflow.add_edge(GENERATE, END)
 
