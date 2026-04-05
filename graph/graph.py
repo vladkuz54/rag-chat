@@ -6,8 +6,8 @@ from langgraph.graph import END, StateGraph
 
 from graph.chains.answer_grader import answer_grader_chain
 from graph.chains.hallucination_grader import hallucination_grader_chain
-from graph.consts import GENERATE, GRADE_DOCUMENTS, RETRIEVE, WEB_SEARCH
-from graph.nodes import generate, grade_documents, retrieve, web_search
+from graph.consts import GENERATE, GRADE_DOCUMENTS, RETRIEVE, WEB_SEARCH, TRANSFORM
+from graph.nodes import generate, grade_documents, retrieve, web_search, transform
 from graph.state import GraphState
 
 
@@ -45,11 +45,25 @@ def grade_generation_grounded_in_documents_and_question(state: GraphState) -> st
             return "useful"
         else:
             print("---DECISION: GENERATION DOES NOT ADDRESS QUESTION---")
-            return "not useful"
+            if state.get("transform_count", 0) < 2:
+                return "not useful"
+            else:
+                return "useful"
     else:
         print("---DECISION: GENERATION IS NOT GROUNDED IN DOCUMENTS, RE-TRY---")
-        return "not supported"
+        if state.get("transform_count", 0) < 2:
+            return "not useful"
+        else:
+            return "useful"
 
+
+def decide_to_transform(state: GraphState) -> str:
+    print("---DECIDE TO TRANSFORM---")
+    if state.get("transform_count", 0) < 2 and state["transform"]:
+        return TRANSFORM
+    elif state.get("transform_count", 0) < 2 and not state["transform"]:
+        return GENERATE
+    return END
 
 workflow = StateGraph(GraphState)
 
@@ -57,20 +71,24 @@ workflow.add_node(RETRIEVE, retrieve)
 workflow.add_node(GRADE_DOCUMENTS, grade_documents)
 workflow.add_node(WEB_SEARCH, web_search)
 workflow.add_node(GENERATE, generate)
+workflow.add_node(TRANSFORM, transform)
 
 workflow.set_entry_point(RETRIEVE)
 workflow.add_edge(RETRIEVE, GRADE_DOCUMENTS)
 workflow.add_conditional_edges(
     GRADE_DOCUMENTS,
-    decide_to_generate,
-    path_map={WEB_SEARCH: WEB_SEARCH, GENERATE: GENERATE},
+    decide_to_transform,
+    path_map={TRANSFORM: TRANSFORM, END: END, GENERATE: GENERATE}
 )
+
+workflow.add_edge(TRANSFORM, RETRIEVE)
+
 workflow.add_conditional_edges(
     GENERATE,
     grade_generation_grounded_in_documents_and_question,
-    path_map={"useful": END, "not useful": WEB_SEARCH, "not supported": GENERATE},
+    path_map={"useful": END, "not useful": TRANSFORM},
 )
-workflow.add_edge(WEB_SEARCH, GENERATE)
+
 workflow.add_edge(GENERATE, END)
 
 app = workflow.compile()
