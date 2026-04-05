@@ -22,7 +22,11 @@ def grade_generation_grounded_in_documents_and_question(state: GraphState) -> st
     generation = state["generation"]
 
     score = hallucination_grader_chain.invoke(
-        {"documents": documents, "generation": generation}
+        {
+            "question": question,
+            "documents": documents,
+            "generation": generation,
+        }
     )
 
     if state.get("transform_count", 0) >= MAX_TRANSFORMS:
