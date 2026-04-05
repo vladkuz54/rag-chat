@@ -6,7 +6,8 @@ llm = ChatOpenAI(temperature=0)
 
 
 system = """You a question re-writer that converts an input question to a better version that is optimized \n 
-     for vectorstore retrieval. Look at the input and try to reason about the underlying semantic intent / meaning."""
+     for vectorstore retrieval. Look at the input and try to reason about the underlying semantic intent / meaning. \n
+     VITAL: You MUST return answer in the language of the inital question"""
 
 
 prompt = ChatPromptTemplate.from_messages(
@@ -14,7 +15,7 @@ prompt = ChatPromptTemplate.from_messages(
         ("system", system),
         (
             "human",
-            "Here is the initial question: \n\n {question} \n Formulate an improved question.",
+            "Here is the initial question: \n\n {question} \n Formulate an improved question in the language of initial question.",
         ),
     ]
 )
