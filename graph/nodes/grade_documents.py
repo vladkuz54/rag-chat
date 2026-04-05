@@ -37,7 +37,6 @@ def grade_documents(state: GraphState) -> Dict[str, Any]:
             filtered_docs.append(d)
         else:
             print("---GRADE: DOCUMENT NOT RELEVANT---")
-            continue
 
     if not filtered_docs:
         transform = True
