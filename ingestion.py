@@ -31,7 +31,7 @@ if not DB_DIR.exists():
         documents=doc_splits,
         embedding=OpenAIEmbeddings(),
         persist_directory="./chroma_db",
-        collection_name="rag-data"
+        collection_name="rag-data",
     )
 
 
@@ -40,4 +40,3 @@ retriever = Chroma(
     persist_directory="./chroma_db",
     embedding_function=OpenAIEmbeddings(),
 ).as_retriever(k=3)
-
