@@ -9,6 +9,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 load_dotenv()
 
 DATA_DIR = Path("./data")
+DB_DIR = Path("./chroma_db")
 DATA_DIR.mkdir(exist_ok=True)
 
 loader = TextLoader("./data/test.txt", encoding="utf-8")
@@ -25,12 +26,13 @@ splitter = RecursiveCharacterTextSplitter(
 doc_splits = splitter.split_documents(docs)
 
 
-# vector_store = Chroma.from_documents(
-#     documents=doc_splits,
-#     persist_directory="./chroma_db",
-#     embedding=OpenAIEmbeddings(),
-#     collection_name="rag-data"
-# )
+if not DB_DIR.exists():
+    vectorstore = Chroma.from_documents(
+        documents=doc_splits,
+        embedding=OpenAIEmbeddings(),
+        persist_directory="./chroma_db",
+        collection_name="rag-data"
+    )
 
 
 retriever = Chroma(
@@ -38,3 +40,4 @@ retriever = Chroma(
     persist_directory="./chroma_db",
     embedding_function=OpenAIEmbeddings(),
 ).as_retriever(k=3)
+
