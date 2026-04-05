@@ -1,23 +1,29 @@
+from pathlib import Path
+
 from dotenv import load_dotenv
 from langchain_chroma import Chroma
-from langchain_community.document_loaders import WebBaseLoader
+from langchain_community.document_loaders import TextLoader
 from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 load_dotenv()
 
-urls = [
-    "https://lilianweng.github.io/posts/2023-06-23-agent/",
-    "https://lilianweng.github.io/posts/2023-03-15-prompt-engineering/",
-    "https://lilianweng.github.io/posts/2023-10-25-adv-attack-llm/",
-]
+DATA_DIR = Path("./data")
+DATA_DIR.mkdir(exist_ok=True)
 
-docs = [WebBaseLoader(url).load() for url in urls]
-docs_list = [item for sublist in docs for item in sublist]
+loader = TextLoader("./data/test.txt", encoding="utf-8")
 
-text_splitter = RecursiveCharacterTextSplitter(chunk_size=250, chunk_overlap=0)
+docs = loader.load()
 
-doc_splits = text_splitter.split_documents(docs_list)
+splitter = RecursiveCharacterTextSplitter(
+    separators=["\n\n", "\n", " ", ""],
+    chunk_size=500,
+    chunk_overlap=100,
+    length_function=len,
+)
+
+doc_splits = splitter.split_documents(docs)
+
 
 # vector_store = Chroma.from_documents(
 #     documents=doc_splits,
@@ -31,4 +37,4 @@ retriever = Chroma(
     collection_name="rag-data",
     persist_directory="./chroma_db",
     embedding_function=OpenAIEmbeddings(),
-).as_retriever()
+).as_retriever(k=3)
