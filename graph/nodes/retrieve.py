@@ -9,4 +9,9 @@ def retrieve(state: GraphState) -> Dict[str, Any]:
     question = state["question"]
 
     documents = retriever.invoke(question)
-    return {"documents": documents, "question": question}
+    return {
+        "documents": documents,
+        "question": question,
+        "transform": state.get("transform", False),
+        "transform_count": state.get("transform_count", 0),
+    }
