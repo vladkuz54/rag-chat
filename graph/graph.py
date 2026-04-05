@@ -6,22 +6,13 @@ from langgraph.graph import END, StateGraph
 
 from graph.chains.answer_grader import answer_grader_chain
 from graph.chains.hallucination_grader import hallucination_grader_chain
-from graph.consts import GENERATE, GRADE_DOCUMENTS, RETRIEVE, WEB_SEARCH, TRANSFORM
-from graph.nodes import generate, grade_documents, retrieve, web_search, transform
+from graph.consts import (GENERATE, GENERIC_RESPONSE, GRADE_DOCUMENTS,
+                          RETRIEVE, TRANSFORM)
+from graph.nodes import (generate, generate_generic_response, grade_documents,
+                         retrieve, transform)
 from graph.state import GraphState
 
-
-def decide_to_generate(state: GraphState) -> str:
-    print("---ACESS GRADED DOCUMENTS---")
-
-    if state["web_search"]:
-        print(
-            "---DECISION: NOT ALL DOCUMENTS ARE NOT RELEVANT TO QUESTION, INCLUDE WEB SEARCH---"
-        )
-        return WEB_SEARCH
-    else:
-        print("---DECISION: GENERATE---")
-        return GENERATE
+MAX_TRANSFORMS = 2
 
 
 def grade_generation_grounded_in_documents_and_question(state: GraphState) -> str:
@@ -34,6 +25,9 @@ def grade_generation_grounded_in_documents_and_question(state: GraphState) -> st
         {"documents": documents, "generation": generation}
     )
 
+    if state.get("transform_count", 0) >= MAX_TRANSFORMS:
+        return GENERIC_RESPONSE
+
     if score.binary_score:
         print("---DECISION: GENERATION IS GROUNDED IN DOCUMENTS---")
         print("---GRADE GENERATION vs QUESTION---")
@@ -42,51 +36,52 @@ def grade_generation_grounded_in_documents_and_question(state: GraphState) -> st
         )
         if score.binary_score:
             print("---DECISION: GENERATION ADDRESSES QUESTION---")
-            return "useful"
+            return END
         else:
             print("---DECISION: GENERATION DOES NOT ADDRESS QUESTION---")
-            if state.get("transform_count", 0) < 2:
-                return "not useful"
-            else:
-                return "useful"
+            return TRANSFORM
     else:
-        print("---DECISION: GENERATION IS NOT GROUNDED IN DOCUMENTS, RE-TRY---")
-        if state.get("transform_count", 0) < 2:
-            return "not useful"
-        else:
-            return "useful"
+        print("---DECISION: GENERATION IS NOT GROUNDED IN DOCUMENTS, TRANSFORM---")
+        return TRANSFORM
 
 
 def decide_to_transform(state: GraphState) -> str:
     print("---DECIDE TO TRANSFORM---")
-    if state.get("transform_count", 0) < 2 and state["transform"]:
+    if state.get("transform_count", 0) < MAX_TRANSFORMS and state["transform"]:
         return TRANSFORM
-    elif state.get("transform_count", 0) < 2 and not state["transform"]:
+    elif state.get("transform_count", 0) < MAX_TRANSFORMS and not state["transform"]:
         return GENERATE
-    return END
+    return GENERIC_RESPONSE
+
 
 workflow = StateGraph(GraphState)
 
 workflow.add_node(RETRIEVE, retrieve)
 workflow.add_node(GRADE_DOCUMENTS, grade_documents)
-workflow.add_node(WEB_SEARCH, web_search)
 workflow.add_node(GENERATE, generate)
 workflow.add_node(TRANSFORM, transform)
+workflow.add_node(GENERIC_RESPONSE, generate_generic_response)
 
 workflow.set_entry_point(RETRIEVE)
 workflow.add_edge(RETRIEVE, GRADE_DOCUMENTS)
 workflow.add_conditional_edges(
     GRADE_DOCUMENTS,
     decide_to_transform,
-    path_map={TRANSFORM: TRANSFORM, END: END, GENERATE: GENERATE}
+    path_map={
+        TRANSFORM: TRANSFORM,
+        GENERIC_RESPONSE: GENERIC_RESPONSE,
+        GENERATE: GENERATE,
+    },
 )
+
+workflow.add_edge(GENERIC_RESPONSE, END)
 
 workflow.add_edge(TRANSFORM, RETRIEVE)
 
 workflow.add_conditional_edges(
     GENERATE,
     grade_generation_grounded_in_documents_and_question,
-    path_map={"useful": END, "not useful": TRANSFORM},
+    path_map={END: END, TRANSFORM: TRANSFORM, GENERIC_RESPONSE: GENERIC_RESPONSE},
 )
 
 workflow.add_edge(GENERATE, END)
