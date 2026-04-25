@@ -5,7 +5,6 @@ A retrieval-augmented generation (RAG) chatbot built with LangChain, LangGraph, 
 ## Features
 
 - **Document Indexing**: Upload and index PDF, TXT, MD, and DOCX files
-- **Intelligent Retrieval**: BM25 + vector semantic search for finding relevant documents
 - **Multi-stage Grading**: 
   - Retrieval relevance grading
   - Document quality evaluation
