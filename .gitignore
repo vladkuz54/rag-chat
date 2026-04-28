@@ -221,3 +221,4 @@ __marimo__/
 
 data
 chroma_db
+ingestion_copy.py
