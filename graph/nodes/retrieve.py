@@ -8,7 +8,8 @@ def retrieve(state: GraphState) -> Dict[str, Any]:
     print("---RETRIEVE---")
     question = state["question"]
 
-    documents = get_retriever().invoke(question)
+    retriever = get_retriever()
+    documents = retriever.invoke(question)
     return {
         "documents": documents,
         "question": question,
