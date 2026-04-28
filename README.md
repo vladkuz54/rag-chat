@@ -5,7 +5,7 @@ A retrieval-augmented generation (RAG) chatbot built with LangChain, LangGraph, 
 ## Features
 
 - **Document Indexing**: Upload and index PDF, TXT, MD, and DOCX files
-- **Intelligent Retrieval**: BM25 + vector semantic search for finding relevant documents
+- **Intelligent Retrieval**: Hybrid BM25 + vector semantic search for finding relevant documents
 - **Multi-stage Grading**: 
   - Retrieval relevance grading
   - Document quality evaluation
@@ -114,8 +114,8 @@ This will open the application in your browser (default: `http://localhost:8501`
 #### 3. **Ask Questions** (Main Chat Area)
    - Type your question in the chat input field
    - Press Enter or click Send
-   - The chatbot will:
-     - Retrieve relevant document chunks
+    - The chatbot will:
+       - Retrieve relevant document chunks using hybrid search
      - Grade their relevance
      - Generate an answer based on the documents
      - Validate the answer for hallucinations
