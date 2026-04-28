@@ -6,15 +6,15 @@ from typing import Any
 from dotenv import load_dotenv
 from langchain_chroma import Chroma
 from langchain_classic.retrievers import EnsembleRetriever
+from langchain_classic.retrievers.contextual_compression import \
+    ContextualCompressionRetriever
+from langchain_community.document_compressors import FlashrankRerank
 from langchain_community.document_loaders import (Docx2txtLoader, PyPDFLoader,
                                                   TextLoader)
 from langchain_community.retrievers import BM25Retriever
 from langchain_core.documents import Document
 from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-
-from langchain_classic.retrievers.contextual_compression import ContextualCompressionRetriever
-from langchain_community.document_compressors import FlashrankRerank
 
 load_dotenv()
 
@@ -67,7 +67,7 @@ def get_retriever(k: int = 4):
 
     ensemble = EnsembleRetriever(
         retrievers=[vector_retriever, bm25_retriever],
-        weights=[0.6, 0.4], 
+        weights=[0.6, 0.4],
     )
 
     compressor = FlashrankRerank(top_n=k)
@@ -76,6 +76,7 @@ def get_retriever(k: int = 4):
     )
 
     return compression_retriever
+
 
 def _resolve_file_path(file_path: str | Path) -> str:
     return str(Path(file_path).expanduser().resolve())
