@@ -7,11 +7,13 @@ requires-python = ">=3.12"
 dependencies = [
     "black>=26.3.1",
     "dotenv>=0.9.9",
+    "flashrank>=0.2.10",
     "isort>=8.0.1",
     "langchain>=1.2.15",
     "langchain-chroma>=1.1.0",
     "langchain-community>=0.4.1",
     "langchain-openai>=1.1.12",
     "pypdf>=6.9.2",
+    "rank-bm25>=0.2.2",
     "streamlit>=1.56.0",
 ]
