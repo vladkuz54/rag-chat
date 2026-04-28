@@ -6,6 +6,9 @@ from typing import Any
 from dotenv import load_dotenv
 from langchain_chroma import Chroma
 from langchain_classic.retrievers import EnsembleRetriever
+from langchain_classic.retrievers.contextual_compression import \
+    ContextualCompressionRetriever
+from langchain_community.document_compressors import FlashrankRerank
 from langchain_community.document_loaders import (Docx2txtLoader, PyPDFLoader,
                                                   TextLoader)
 from langchain_community.retrievers import BM25Retriever
@@ -52,9 +55,9 @@ def get_bm25_retriever(documents: list[Document], k: int = 3) -> BM25Retriever:
     return bm25_retriever
 
 
-def get_retriever(k: int = 3):
+def get_retriever(k: int = 4):
     vectorstore = get_vectorstore()
-    vector_retriever = vectorstore.as_retriever(search_kwargs={"k": k})
+    vector_retriever = vectorstore.as_retriever(k=k)
     documents = _documents_from_vectorstore(vectorstore)
 
     if not documents:
@@ -62,10 +65,17 @@ def get_retriever(k: int = 3):
 
     bm25_retriever = get_bm25_retriever(documents, k=k)
 
-    return EnsembleRetriever(
+    ensemble = EnsembleRetriever(
         retrievers=[vector_retriever, bm25_retriever],
-        weights=[0.5, 0.5],
+        weights=[0.6, 0.4],
     )
+
+    compressor = FlashrankRerank(top_n=k)
+    compression_retriever = ContextualCompressionRetriever(
+        base_compressor=compressor, base_retriever=ensemble
+    )
+
+    return compression_retriever
 
 
 def _resolve_file_path(file_path: str | Path) -> str:

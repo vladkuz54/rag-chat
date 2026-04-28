@@ -5,6 +5,10 @@ A retrieval-augmented generation (RAG) chatbot built with LangChain, LangGraph, 
 ## Features
 
 - **Document Indexing**: Upload and index PDF, TXT, MD, and DOCX files
+- **Hybrid Retrieval**: 
+  - Vector search for semantic similarity
+  - BM25 keyword search for exact matches
+- **Intelligent Reranking**: Flashrank reranker re-scores and reorders retrieved documents based on relevance to the query, ensuring the most pertinent documents appear first
 - **Multi-stage Grading**: 
   - Retrieval relevance grading
   - Document quality evaluation
@@ -113,8 +117,12 @@ This will open the application in your browser (default: `http://localhost:8501`
 #### 3. **Ask Questions** (Main Chat Area)
    - Type your question in the chat input field
    - Press Enter or click Send
-    - The chatbot will:
-       - Retrieve relevant document chunks using hybrid search
+   - The chatbot will:
+     - **Transform the question** into a hypothetical answer (HyDE approach) for better semantic search
+     - **Retrieve relevant documents** using hybrid search:
+       - Vector search (semantic similarity)
+       - BM25 search (keyword matching)
+     - **Rerank results** using Flashrank to identify the most relevant documents
      - Grade their relevance
      - Generate an answer based on the documents
      - Validate the answer for hallucinations
@@ -208,6 +216,8 @@ rag-chat/
 - **Chroma** - Vector database for semantic search
 - **Streamlit** - Web interface framework
 - **OpenAI** - Embeddings and language models
+- **Flashrank** - ML-based document reranking for improved relevance scoring
+- **BM25** - Keyword-based document retrieval for hybrid search
 
 ## License
 
