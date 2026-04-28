@@ -5,8 +5,10 @@ from typing import Any
 
 from dotenv import load_dotenv
 from langchain_chroma import Chroma
+from langchain_classic.retrievers import EnsembleRetriever
 from langchain_community.document_loaders import (Docx2txtLoader, PyPDFLoader,
                                                   TextLoader)
+from langchain_community.retrievers import BM25Retriever
 from langchain_core.documents import Document
 from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -33,8 +35,37 @@ def get_vectorstore() -> Chroma:
     )
 
 
+def _documents_from_vectorstore(vectorstore: Chroma) -> list[Document]:
+    stored_documents = vectorstore.get()
+    texts = stored_documents.get("documents", [])
+    metadatas = stored_documents.get("metadatas", [])
+
+    return [
+        Document(page_content=text, metadata=metadata or {})
+        for text, metadata in zip(texts, metadatas)
+    ]
+
+
+def get_bm25_retriever(documents: list[Document], k: int = 3) -> BM25Retriever:
+    bm25_retriever = BM25Retriever.from_documents(documents)
+    bm25_retriever.k = k
+    return bm25_retriever
+
+
 def get_retriever(k: int = 3):
-    return get_vectorstore().as_retriever(k=k)
+    vectorstore = get_vectorstore()
+    vector_retriever = vectorstore.as_retriever(search_kwargs={"k": k})
+    documents = _documents_from_vectorstore(vectorstore)
+
+    if not documents:
+        return vector_retriever
+
+    bm25_retriever = get_bm25_retriever(documents, k=k)
+
+    return EnsembleRetriever(
+        retrievers=[vector_retriever, bm25_retriever],
+        weights=[0.5, 0.5],
+    )
 
 
 def _resolve_file_path(file_path: str | Path) -> str:
