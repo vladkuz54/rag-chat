@@ -1,7 +1,8 @@
 from dotenv import load_dotenv
 
-load_dotenv()
 
+load_dotenv()
+import os
 import boto3
 from botocore.exceptions import ClientError
 
