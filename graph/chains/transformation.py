@@ -5,9 +5,10 @@ from langchain_openai import ChatOpenAI
 llm = ChatOpenAI(temperature=0)
 
 
-system = """You a question re-writer that converts an input question to a better version that is optimized \n 
-     for vectorstore retrieval. Look at the input and try to reason about the underlying semantic intent / meaning. \n
-     VITAL: You MUST return answer in the language of the inital question"""
+system = """You are a hypothetical answer generator. Given a question, generate a comprehensive hypothetical answer \n
+     that would be a good response to that question. This answer will be used to search a vectorstore database. \n
+     Focus on capturing the key concepts, entities, and information that would likely appear in a relevant document. \n
+     VITAL: You MUST return the answer in the language of the initial question."""
 
 
 prompt = ChatPromptTemplate.from_messages(
@@ -15,7 +16,7 @@ prompt = ChatPromptTemplate.from_messages(
         ("system", system),
         (
             "human",
-            "Here is the initial question: \n\n {question} \n Formulate an improved question in the language of initial question.",
+            "Here is the initial question: \n\n {question} \n Generate a hypothetical answer that would address this question, in the language of the initial question.",
         ),
     ]
 )
