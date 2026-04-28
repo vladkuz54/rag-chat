@@ -13,6 +13,11 @@ from langchain_core.documents import Document
 from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+from langchain_classic.retrievers.contextual_compression import ContextualCompressionRetriever
+from langchain_community.document_compressors import FlashrankRerank
+
+load_dotenv()
+
 DATA_DIR = Path("./data")
 DB_DIR = Path("./chroma_db")
 COLLECTION_NAME = "rag-data"
@@ -50,7 +55,7 @@ def get_bm25_retriever(documents: list[Document], k: int = 3) -> BM25Retriever:
     return bm25_retriever
 
 
-def get_retriever(k: int = 3):
+def get_retriever(k: int = 4):
     vectorstore = get_vectorstore()
     vector_retriever = vectorstore.as_retriever(k=k)
     documents = _documents_from_vectorstore(vectorstore)
@@ -60,11 +65,17 @@ def get_retriever(k: int = 3):
 
     bm25_retriever = get_bm25_retriever(documents, k=k)
 
-    return EnsembleRetriever(
+    ensemble = EnsembleRetriever(
         retrievers=[vector_retriever, bm25_retriever],
-        weights=[0.5, 0.5],
+        weights=[0.6, 0.4], 
     )
 
+    compressor = FlashrankRerank(top_n=k)
+    compression_retriever = ContextualCompressionRetriever(
+        base_compressor=compressor, base_retriever=ensemble
+    )
+
+    return compression_retriever
 
 def _resolve_file_path(file_path: str | Path) -> str:
     return str(Path(file_path).expanduser().resolve())
