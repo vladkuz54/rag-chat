@@ -27,6 +27,8 @@ def get_secret():
     secret = get_secret_value_response['SecretString']
     os.environ.get["OPENAI_API_KEY"] = secret
 
+get_secret()
+
 llm = ChatOpenAI(model="gpt-4o", temperature=0)
 
 system = """You are a QA assistant in a RAG system.

@@ -27,6 +27,8 @@ def get_secret():
     secret = get_secret_value_response['SecretString']
     os.environ.get["OPENAI_API_KEY"] = secret
 
+get_secret()
+
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
 
