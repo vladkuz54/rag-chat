@@ -113,8 +113,8 @@ This will open the application in your browser (default: `http://localhost:8501`
 #### 3. **Ask Questions** (Main Chat Area)
    - Type your question in the chat input field
    - Press Enter or click Send
-   - The chatbot will:
-     - Retrieve relevant document chunks
+    - The chatbot will:
+       - Retrieve relevant document chunks using hybrid search
      - Grade their relevance
      - Generate an answer based on the documents
      - Validate the answer for hallucinations
