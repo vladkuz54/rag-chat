@@ -52,7 +52,7 @@ def get_bm25_retriever(documents: list[Document], k: int = 3) -> BM25Retriever:
 
 def get_retriever(k: int = 3):
     vectorstore = get_vectorstore()
-    vector_retriever = vectorstore.as_retriever(search_kwargs={"k": k})
+    vector_retriever = vectorstore.as_retriever(k=k)
     documents = _documents_from_vectorstore(vectorstore)
 
     if not documents:
