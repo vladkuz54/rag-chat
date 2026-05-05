@@ -6,13 +6,23 @@ from langgraph.graph import END, StateGraph
 
 from graph.chains.answer_grader import answer_grader_chain
 from graph.chains.hallucination_grader import hallucination_grader_chain
-from graph.consts import (GENERATE, GENERIC_RESPONSE, GRADE_DOCUMENTS,
-                          RETRIEVE, TRANSFORM)
-from graph.nodes import (generate, generate_generic_response, grade_documents,
-                         retrieve, transform)
+from graph.consts import (
+    GENERATE,
+    GENERIC_RESPONSE,
+    GRADE_DOCUMENTS,
+    RETRIEVE,
+    TRANSFORM,
+)
+from graph.nodes import (
+    generate,
+    generate_generic_response,
+    grade_documents,
+    retrieve,
+    transform,
+)
 from graph.state import GraphState
 
-MAX_TRANSFORMS = 2
+MAX_TRANSFORMS = 3
 
 
 def grade_generation_grounded_in_documents_and_question(state: GraphState) -> str:
