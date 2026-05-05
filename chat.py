@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 import streamlit as st
 
 from graph.graph import app
-from ingestion import sync_uploaded_file
+from ingestion import ingest_dbn_page
 
 st.set_page_config(page_title="Rag chat", layout="centered")
 st.title("Rag chat")
@@ -12,7 +12,7 @@ if "messages" not in st.session_state:
     st.session_state.messages = [
         {
             "role": "assistant",
-            "content": "Please upload and index a file before asking questions.",
+            "content": "Please upload and index a URL before asking questions.",
         }
     ]
 
@@ -66,23 +66,23 @@ def run_graph_with_debug(question: str) -> tuple[Dict[str, Any], List[str]]:
 with st.sidebar:
     st.subheader("Session")
 
-    uploaded_file = st.file_uploader(
-        "Knowledge file",
-        type=["pdf", "txt", "md", "doc", "docx"],
-        key="knowledge_file",
+    dbn_url = st.text_input(
+        "DBN Document URL",
+        placeholder="https://dbn.co.ua/load/normativy/dbn/1-1-0-242",
+        help="Enter a DBN page URL to index",
     )
 
     st.session_state.debug_enabled = st.checkbox(
         "Show debug trace", value=st.session_state.debug_enabled
     )
 
-    if st.button("Index / Update File", use_container_width=True):
-        if uploaded_file is None:
-            st.warning("Please upload a file first.")
+    if st.button("Index / Update Document", use_container_width=True):
+        if not dbn_url or not dbn_url.strip():
+            st.warning("Please enter a DBN URL first.")
         else:
-            with st.spinner("Indexing file..."):
-                result = sync_uploaded_file(uploaded_file)
-            st.session_state.indexed_file = uploaded_file.name
+            with st.spinner("Indexing document..."):
+                result = ingest_dbn_page(dbn_url.strip())
+            st.session_state.indexed_file = dbn_url
             st.session_state.index_result = result
 
     if st.session_state.index_result:
@@ -93,6 +93,8 @@ with st.sidebar:
             st.info(
                 f"Indexed: {st.session_state.indexed_file} ({chunks} chunks, no changes)"
             )
+        elif status == "failed":
+            st.error(f"Failed to index: {result.get('error', 'Unknown error')}")
         else:
             st.success(f"Indexed: {st.session_state.indexed_file} ({chunks} chunks)")
 
@@ -105,7 +107,7 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-question = st.chat_input("Ask a question about your indexed file...")
+question = st.chat_input("Ask a question about your indexed URL...")
 if question:
     question = question.strip()
 
@@ -114,7 +116,7 @@ if question:
         st.stop()
 
     if not st.session_state.indexed_file:
-        st.error("Please upload and index a file in the sidebar first.")
+        st.error("Please upload and index a URL in the sidebar first.")
         st.stop()
 
     st.session_state.messages.append({"role": "user", "content": question})
