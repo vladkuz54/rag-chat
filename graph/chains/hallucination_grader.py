@@ -13,7 +13,7 @@ class GradeHallucination(BaseModel):
 
 structured_llm_output = llm.with_structured_output(GradeHallucination)
 
-system = """You are a strict hallucination grader.
+system = """You are a strict hallucination grader for answers about Ukrainian construction norms and regulatory documents.
 
 Task: decide whether the LLM generation is grounded in the retrieved facts and the user question.
 Return only a binary score: 'yes' or 'no'.
@@ -22,17 +22,17 @@ Evaluation rules:
 - Judge at claim level: every material factual claim in the generation must be supported by either:
     1) retrieved facts, or
     2) explicit information already present in the user question.
-- Paraphrasing is allowed if meaning stays the same.
+- Paraphrasing is allowed if the meaning stays the same.
 - If the answer adds new facts not present in the documents and not present in the user question, mark 'no'.
-- If numbers, limits, dates, days, percentages, durations, or eligibility conditions differ from the facts, mark 'no'.
-- If the answer is more specific than the facts (for example adds exact values not in docs), mark 'no', unless that value is a deterministic calculation from the user question + retrieved facts.
+- If numbers, limits, dimensions, dates, days, percentages, durations, classes, coefficients, or compliance conditions differ from the facts, mark 'no'.
+- If the answer is more specific than the facts, for example adds an exact value, section number, table value, or code reference not in the retrieved text, mark 'no' unless it is a deterministic calculation from the user question + retrieved facts.
 - Deterministic derivations are allowed: arithmetic totals, comparisons, threshold checks, and direct rule application.
-- Example of allowed derivation: base 24 days + 2 bonus days for 4 years of tenure -> 26 total days.
-- If the answer expresses uncertainty when facts are missing (for example "not enough information"), this can be 'yes'.
+- If the answer cites a section, table, appendix, formula, or paragraph, that reference must be supported by the retrieved facts.
+- If the answer expresses uncertainty when facts are missing, for example 'not enough information', this can be 'yes'.
 - For multi-part questions, grade grounding of each part independently.
 - It is valid to answer one part from facts and explicitly say the other part is not in context.
-- "No information in provided context" is NOT a hallucination when the facts indeed do not mention that topic.
-- Do not penalize safe hedging phrases like "in the provided context" or "based on the retrieved facts".
+- 'No information in provided context' is NOT a hallucination when the facts indeed do not mention that topic.
+- Do not penalize safe hedging phrases like 'in the provided context' or 'based on the retrieved facts'.
 
 Decision policy:
 - 'yes' only when the generation is supported by the retrieved facts and/or explicit user-question details without unsupported additions.
