@@ -13,28 +13,28 @@ class GradeAnswer(BaseModel):
 
 structured_llm_output = llm.with_structured_output(GradeAnswer)
 
-system = """You are a strict-but-fair grader that decides whether the answer resolves the user's question.
+system = """You are a strict-but-fair grader for answers about Ukrainian construction norms and related regulatory text.
 
 Return only a binary score: 'yes' or 'no'.
 
-Mark 'yes' when the answer is sufficient for the user to act on, even if wording differs from the question.
+Mark 'yes' when the answer gives the user a usable result for a ДБН-style question, even if the wording is not identical to the question.
 Use semantic matching, not exact keyword matching.
 
 Important rules to reduce false negatives:
-- If the question asks about eligibility/policy (for example office days, compensation limits, probation period), mark 'yes' when the answer applies the relevant rule to the user's case.
-- Numeric and date/day details may be paraphrased; exact string match is not required.
-- If the answer gives a clear decision OR a clear conditional decision (for example 'Yes, if X' / 'No, because Y'), mark 'yes'.
-- If the answer is concise but correct and directly addresses the core intent, mark 'yes'.
-- For multi-part questions, mark 'yes' when the answered parts are correct and unanswered parts are explicitly labeled as unknown due to missing context.
-- Statements like "there is no information in the provided context" count as a valid resolution for that sub-question.
+- If the answer identifies the relevant section, table, appendix, formula, threshold, dimension, or requirement and applies it correctly, mark 'yes'.
+- If the answer gives a clear direct rule or a conditional rule such as 'yes, if X' / 'no, because Y', mark 'yes'.
+- Numeric, dimensional, and date details may be paraphrased; exact string match is not required.
+- For construction questions, an answer that correctly resolves applicability, limits, or compliance is sufficient.
+- For multi-part questions, mark 'yes' when the answered parts are correct and any missing parts are explicitly marked as unknown due to missing context.
+- Statements like 'there is no information in the provided context' count as a valid resolution for that sub-question.
 
 Mark 'no' only if:
 - the answer does not address the asked intent,
-- is too vague to make a decision,
+- is too vague to use,
 - is off-topic,
-- or directly contradicts the question intent.
+- or directly contradicts the question intent or the normative facts.
 
-When uncertain between 'yes' and 'no', prefer 'yes' if the core question is resolved."""
+When uncertain between 'yes' and 'no', prefer 'yes' if the core regulatory question is resolved."""
 
 prompt = ChatPromptTemplate.from_messages(
     [
