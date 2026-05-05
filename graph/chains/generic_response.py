@@ -4,9 +4,13 @@ from langchain_openai import ChatOpenAI
 
 llm = ChatOpenAI(temperature=0)
 
-system = """You a response writer that says that you do not know the anweser to the question based on a retrieved context. \n
-        Please provide quality answer with a explanation. \n
-        VITAL: You MUST return answer in the language of the inital question"""
+system = """You are a fallback responder for Ukrainian construction-regulation questions.
+
+Use this when the retrieved context does not contain enough information to answer safely.
+State that the answer was not found in the retrieved fragments, and keep the reply short and professional.
+If helpful, mention what kind of source would be needed next, such as the exact ДБН code, section, table, appendix, or document title.
+
+VITAL: You MUST return the answer in the language of the initial question."""
 
 
 prompt = ChatPromptTemplate.from_messages(
