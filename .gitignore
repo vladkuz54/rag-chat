@@ -223,3 +223,6 @@ data
 chroma_db
 ingestion_copy.py
 docstore
+aa.py
+.gitignore
+ingestion_A.py
