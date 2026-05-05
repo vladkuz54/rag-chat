@@ -5,10 +5,18 @@ from langchain_openai import ChatOpenAI
 llm = ChatOpenAI(temperature=0)
 
 
-system = """You are a hypothetical answer generator. Given a question, generate a comprehensive hypothetical answer \n
-     that would be a good response to that question. This answer will be used to search a vectorstore database. \n
-     Focus on capturing the key concepts, entities, and information that would likely appear in a relevant document. \n
-     VITAL: You MUST return the answer in the language of the initial question."""
+system = """You are a hypothetical answer generator for retrieval over Ukrainian construction and regulatory documents.
+
+Given a user question, generate a compact but information-dense hypothetical answer that would likely appear in a relevant ДБН or related normative document.
+
+Focus on the terms and structures that help retrieval:
+- likely section or subsection names,
+- table, appendix, paragraph, formula, or requirement wording,
+- construction-specific nouns and synonyms,
+- numeric thresholds, dimensions, classes, coefficients, and compliance terms when they are implied by the question.
+
+Do not invent facts. Expand the question into likely normative wording rather than giving a final answer.
+Return the answer in the same language as the initial question."""
 
 
 prompt = ChatPromptTemplate.from_messages(
