@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 import streamlit as st
 
 from graph.graph import app
-from ingestion import ingest_dbn_page
+from preprocessing.ingestion import ingest_dbn_page
 
 st.set_page_config(page_title="Rag chat", layout="centered")
 st.title("Rag chat")
