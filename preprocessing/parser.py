@@ -1,5 +1,4 @@
 import re
-from pathlib import Path
 
 from dotenv import load_dotenv
 from langchain_chroma import Chroma
@@ -11,12 +10,12 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from llama_cloud import LlamaCloud
 
 from preprocessing import (
-    _HTML_TABLE_RE,
-    _LC_SPLITTER,
-    _MD_SEPS,
-    _PAGE_MARKER_RE,
-    _PAGE_NUMBER_RE,
-    _PLACEHOLDER_RE,
+    _HTML_TABLE,
+    _SPLITTER,
+    _SEPARATORS,
+    _PAGE_MARKER,
+    _PAGE_NUMBER,
+    _PLACEHOLDER,
     COLLECTION_NAME,
     DB_DIR,
     DOCSTORE_DIR,
@@ -49,24 +48,24 @@ class TableAwareSplitter(RecursiveCharacterTextSplitter):
             tables[key] = m.group(0)
             return key
 
-        protected = _HTML_TABLE_RE.sub(_save, text)
+        protected = _HTML_TABLE.sub(_save, text)
         raw_chunks = super().split_text(protected)
 
         def _restore(chunk: str) -> str:
-            return _PLACEHOLDER_RE.sub(lambda m: tables[m.group(0)], chunk)
+            return _PLACEHOLDER.sub(lambda m: tables[m.group(0)], chunk)
 
         return [_restore(c) for c in raw_chunks]
 
 
 parent_splitter = TableAwareSplitter(
-    separators=_MD_SEPS,
+    separators=_SEPARATORS,
     chunk_size=2000,
     chunk_overlap=200,
     is_separator_regex=True,
 )
 
 child_splitter = TableAwareSplitter(
-    separators=_MD_SEPS,
+    separators=_SEPARATORS,
     chunk_size=400,
     chunk_overlap=50,
     is_separator_regex=True,
@@ -98,8 +97,8 @@ def _clean_markdown(markdown: str) -> str:
         stripped = line.strip()
         if (
             stripped == "---"
-            or _PAGE_MARKER_RE.match(stripped)
-            or _PAGE_NUMBER_RE.match(stripped)
+            or _PAGE_MARKER.match(stripped)
+            or _PAGE_NUMBER.match(stripped)
         ):
             continue
         if result and re.match(r"^\(.+\)\s*$", stripped):
@@ -137,7 +136,7 @@ def _remove_sections(markdown: str, skip: set[str] = SKIP_SECTIONS) -> str:
 def split_with_header_path(markdown: str) -> list[Document]:
     doc_metadata = extract_doc_metadata(markdown)
     clean = _remove_sections(_clean_markdown(markdown))
-    chunks = _LC_SPLITTER.split_text(clean)
+    chunks = _SPLITTER.split_text(clean)
     result = []
     for chunk in chunks:
         header_levels = {
