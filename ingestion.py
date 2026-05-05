@@ -1,237 +1,304 @@
-import hashlib
-import os
+import re
 from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
 from langchain_chroma import Chroma
-from langchain_classic.retrievers import EnsembleRetriever
-from langchain_classic.retrievers.contextual_compression import \
-    ContextualCompressionRetriever
+from langchain_classic.retrievers import ParentDocumentRetriever
+from langchain_classic.retrievers.contextual_compression import (
+    ContextualCompressionRetriever,
+)
+from langchain_classic.storage import LocalFileStore
+from langchain_classic.storage._lc_store import create_kv_docstore
 from langchain_community.document_compressors import FlashrankRerank
-from langchain_community.document_loaders import (Docx2txtLoader, PyPDFLoader,
-                                                  TextLoader)
-from langchain_community.retrievers import BM25Retriever
 from langchain_core.documents import Document
+from langchain_core.runnables import RunnableLambda
 from langchain_openai import OpenAIEmbeddings
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_text_splitters import (
+    Language,
+    MarkdownHeaderTextSplitter,
+    RecursiveCharacterTextSplitter,
+)
+from llama_cloud import LlamaCloud
+
+from scraper import download_pdf_from_dbn_page
 
 load_dotenv()
 
+client = LlamaCloud()
+
+
+def transform_into_markdown(path: str):
+    file = client.files.create(file=path, purpose="parse")
+    result = client.parsing.parse(
+        file_id=file.id,
+        tier="agentic",
+        version="latest",
+        expand=["markdown_full"],
+    )
+
+    return result.markdown_full
+
+
 DATA_DIR = Path("./data")
 DB_DIR = Path("./chroma_db")
-COLLECTION_NAME = "rag-data"
-SUPPORTED_EXTENSIONS = {".pdf", ".txt", ".md", ".doc", ".docx"}
+DOCSTORE_DIR = Path("./docstore")
+COLLECTION_NAME = "dbn"
 
 DATA_DIR.mkdir(exist_ok=True)
+DB_DIR.mkdir(exist_ok=True)
+DOCSTORE_DIR.mkdir(exist_ok=True)
+
+_MD_SEPS = RecursiveCharacterTextSplitter.get_separators_for_language(Language.MARKDOWN)
+_HTML_TABLE_RE = re.compile(r"<table[\s\S]*?</table>", re.IGNORECASE)
+_PLACEHOLDER_RE = re.compile(r"TBLS(\d{4})TBLS")
+_HEADERS_TO_SPLIT = [
+    ("#", "h1"),
+    ("##", "h2"),
+    ("###", "h3"),
+]
+_PAGE_MARKER_RE = re.compile(r"^ДБН\s+[А-ЯA-Z0-9.\-:]+\s*$")
+_PAGE_NUMBER_RE = re.compile(r"^\s*(?:[IVXLCDM]+|\d+)\s*$")
+_LC_SPLITTER = MarkdownHeaderTextSplitter(
+    headers_to_split_on=_HEADERS_TO_SPLIT, strip_headers=False
+)
+
+SKIP_SECTIONS = {"ЗМІСТ", "ПЕРЕДМОВА"}
 
 
-def get_embedding_function() -> OpenAIEmbeddings:
-    return OpenAIEmbeddings()
+class TableAwareSplitter(RecursiveCharacterTextSplitter):
+    def split_text(self, text: str) -> list[str]:
+        tables: dict[str, str] = {}
+
+        def _save(m: re.Match) -> str:
+            key = f"TBLS{len(tables):04d}TBLS"
+            tables[key] = m.group(0)
+            return key
+
+        protected = _HTML_TABLE_RE.sub(_save, text)
+        raw_chunks = super().split_text(protected)
+
+        def _restore(chunk: str) -> str:
+            return _PLACEHOLDER_RE.sub(lambda m: tables[m.group(0)], chunk)
+
+        return [_restore(c) for c in raw_chunks]
 
 
-def get_vectorstore() -> Chroma:
-    return Chroma(
-        collection_name=COLLECTION_NAME,
-        persist_directory=str(DB_DIR),
-        embedding_function=get_embedding_function(),
-    )
+parent_splitter = TableAwareSplitter(
+    separators=_MD_SEPS,
+    chunk_size=2000,
+    chunk_overlap=200,
+    is_separator_regex=True,
+)
+
+child_splitter = TableAwareSplitter(
+    separators=_MD_SEPS,
+    chunk_size=400,
+    chunk_overlap=50,
+    is_separator_regex=True,
+)
+
+docstore = LocalFileStore(str(DOCSTORE_DIR))
+docstore = create_kv_docstore(docstore)
+
+vectorstore = Chroma(
+    embedding_function=OpenAIEmbeddings(),
+    collection_name=COLLECTION_NAME,
+    persist_directory=str(DB_DIR),
+)
 
 
-def _documents_from_vectorstore(vectorstore: Chroma) -> list[Document]:
-    stored_documents = vectorstore.get()
-    texts = stored_documents.get("documents", [])
-    metadatas = stored_documents.get("metadatas", [])
-
-    return [
-        Document(page_content=text, metadata=metadata or {})
-        for text, metadata in zip(texts, metadatas)
-    ]
+def extract_doc_metadata(markdown: str) -> dict:
+    meta = {}
+    m = re.search(r"\s+(ДБН\s+[А-ЯA-Z0-9]+\.[0-9.\-]+:\d{4})", markdown)
+    if m:
+        id = m.group(1)
+        meta["dbn_id"] = id
+    return meta
 
 
-def get_bm25_retriever(documents: list[Document], k: int = 3) -> BM25Retriever:
-    bm25_retriever = BM25Retriever.from_documents(documents)
-    bm25_retriever.k = k
-    return bm25_retriever
+def _clean_markdown(markdown: str) -> str:
+    lines = markdown.splitlines()
+    result = []
+    for line in lines:
+        stripped = line.strip()
+        if (
+            stripped == "---"
+            or _PAGE_MARKER_RE.match(stripped)
+            or _PAGE_NUMBER_RE.match(stripped)
+        ):
+            continue
+        if result and re.match(r"^\(.+\)\s*$", stripped):
+            prev = result[-1]
+            if re.match(r"^#{1,6}\s+", prev):
+                result[-1] = prev.rstrip() + " " + stripped
+                continue
+        result.append(line)
+    return "\n".join(result)
 
 
-def get_retriever(k: int = 4):
-    vectorstore = get_vectorstore()
-    vector_retriever = vectorstore.as_retriever(k=k)
-    documents = _documents_from_vectorstore(vectorstore)
-
-    if not documents:
-        return vector_retriever
-
-    bm25_retriever = get_bm25_retriever(documents, k=k)
-
-    ensemble = EnsembleRetriever(
-        retrievers=[vector_retriever, bm25_retriever],
-        weights=[0.6, 0.4],
-    )
-
-    compressor = FlashrankRerank(top_n=k)
-    compression_retriever = ContextualCompressionRetriever(
-        base_compressor=compressor, base_retriever=ensemble
-    )
-
-    return compression_retriever
-
-
-def _resolve_file_path(file_path: str | Path) -> str:
-    return str(Path(file_path).expanduser().resolve())
+def _remove_sections(markdown: str, skip: set[str] = SKIP_SECTIONS) -> str:
+    lines = markdown.splitlines(keepends=True)
+    start = 0
+    for i, line in enumerate(lines):
+        hm = re.match(r"^#{1,6}\s+(.+)$", line.rstrip())
+        if hm and hm.group(1).strip() in skip:
+            start = i
+            break
+    result, skip_level = [], None
+    for line in lines[start:]:
+        hm = re.match(r"^(#{1,6})\s+(.+)$", line.rstrip())
+        if hm:
+            lvl, txt = len(hm.group(1)), hm.group(2).strip()
+            if txt in skip:
+                skip_level = lvl
+                continue
+            if skip_level is not None and lvl <= skip_level:
+                skip_level = None
+        if skip_level is None:
+            result.append(line)
+    return "".join(result)
 
 
-def _get_file_hash(file_path: str) -> str:
-    digest = hashlib.sha256()
-    with open(file_path, "rb") as file_handle:
-        for chunk in iter(lambda: file_handle.read(8192), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+def split_with_header_path(markdown: str) -> list[Document]:
+    doc_metadata = extract_doc_metadata(markdown)
+    clean = _remove_sections(_clean_markdown(markdown))
+    chunks = _LC_SPLITTER.split_text(clean)
+    result = []
+    for chunk in chunks:
+        header_levels = {
+            int(k[1:]): v
+            for k, v in chunk.metadata.items()
+            if k.startswith("h") and k[1:].isdigit()
+        }
+        chunk_path = ""
+        if header_levels:
+            chunk_path = " > ".join(v for _, v in sorted(header_levels.items()))
 
+        metadata = {
+            **doc_metadata,
+            "chunk_path": chunk_path if chunk_path else None,
+        }
 
-def load_documents(file_path: str | Path):
-    """Load documents from PDF, TXT, MD, and DOCX files."""
-    resolved_path = _resolve_file_path(file_path)
-
-    if not os.path.exists(resolved_path):
-        raise FileNotFoundError(f"File not found: {file_path}")
-
-    ext = os.path.splitext(resolved_path)[1].lower()
-
-    if ext == ".pdf":
-        loader = PyPDFLoader(resolved_path)
-    elif ext in {".txt", ".md"}:
-        loader = TextLoader(resolved_path, encoding="utf-8")
-    elif ext in {".docx", ".doc"}:
-        loader = Docx2txtLoader(resolved_path)
-    else:
-        raise ValueError(
-            f"Unsupported file type: {ext}. Supported: .pdf, .txt, .md, .doc, .docx"
+        result.append(
+            Document(
+                page_content=chunk.page_content,
+                metadata=metadata,
+            )
         )
-
-    return loader.load()
-
-
-def create_doc_splits(docs: list[Document]):
-    splitter = RecursiveCharacterTextSplitter(
-        separators=["\n\n", "\n", " ", ""],
-        chunk_size=500,
-        chunk_overlap=100,
-        length_function=len,
-    )
-
-    return splitter.split_documents(docs)
+    return result
 
 
-def _prepare_documents(file_path: str | Path) -> tuple[list[Document], str]:
-    resolved_path = _resolve_file_path(file_path)
-    documents = load_documents(resolved_path)
-    doc_splits = create_doc_splits(documents)
-    file_hash = _get_file_hash(resolved_path)
+def _get_source_url_from_vectorstore(source_url: str) -> bool:
+    existing_documents = vectorstore.get(where={"source_url": source_url})
+    return bool(existing_documents.get("ids"))
 
-    for index, document in enumerate(doc_splits):
-        metadata = dict(document.metadata or {})
-        metadata.update(
-            {
-                "source": resolved_path,
-                "file_name": Path(resolved_path).name,
-                "file_hash": file_hash,
-                "chunk_index": index,
-            }
-        )
-        document.metadata = metadata
 
-    return doc_splits, file_hash
+def load_and_process_file(file_path: str | Path) -> list[Document]:
+    file_path = Path(file_path)
+
+    text = transform_into_markdown(file_path)
+
+    return split_with_header_path(text)
 
 
 def _delete_existing_source_chunks(vectorstore: Chroma, source: str) -> None:
-    existing_documents = vectorstore.get(where={"source": source})
+    existing_documents = vectorstore.get(where={"source_url": source})
     existing_ids = existing_documents.get("ids", [])
 
     if existing_ids:
         vectorstore.delete(ids=list(existing_ids))
 
 
-def sync_file_to_vectorstore(file_path: str | Path) -> dict[str, Any]:
-    resolved_path = _resolve_file_path(file_path)
+def get_parent_retriever(k: int = 4) -> ParentDocumentRetriever:
+    return ParentDocumentRetriever(
+        vectorstore=vectorstore,
+        docstore=docstore,
+        child_splitter=child_splitter,
+        parent_splitter=parent_splitter,
+        search_kwargs={"k": k * 2},
+    )
 
-    if not os.path.exists(resolved_path):
-        raise FileNotFoundError(f"File not found: {file_path}")
 
-    if Path(resolved_path).suffix.lower() not in SUPPORTED_EXTENSIONS:
-        raise ValueError(
-            f"Unsupported file type: {Path(resolved_path).suffix.lower()}. Supported: .pdf, .txt, .md, .doc, .docx"
+def ingest_documents(docs: list[Document], source_url: str) -> dict[str, Any]:
+    if not docs:
+        return {"status": "failed", "error": "No documents to ingest"}
+
+    for doc in docs:
+        doc.metadata.update(
+            {
+                "source_url": source_url,
+            }
         )
 
-    vectorstore = get_vectorstore()
-    doc_splits, file_hash = _prepare_documents(resolved_path)
+    print(f"Adding {len(docs)} chunks...")
+    base_retriever = get_parent_retriever(k=4)
 
-    existing_documents = vectorstore.get(where={"source": resolved_path})
-    existing_ids = existing_documents.get("ids", [])
-    existing_metadatas = existing_documents.get("metadatas", [])
+    base_retriever.add_documents(docs)
 
-    if existing_ids and existing_metadatas:
-        existing_hash = existing_metadatas[0].get("file_hash")
-        if existing_hash == file_hash:
-            return {
-                "source": resolved_path,
-                "status": "unchanged",
-                "chunks": len(existing_ids),
-            }
-
-    if existing_ids:
-        _delete_existing_source_chunks(vectorstore, resolved_path)
-
-    texts = [document.page_content for document in doc_splits]
-    metadatas = [document.metadata for document in doc_splits]
-    ids = [f"{file_hash[:16]}-{index}" for index in range(len(doc_splits))]
-
-    vectorstore.add_texts(texts=texts, metadatas=metadatas, ids=ids)
-
+    print(f"Indexing completed")
     return {
-        "source": resolved_path,
         "status": "indexed",
-        "chunks": len(doc_splits),
+        "chunks": len(docs),
     }
 
 
-def sync_uploaded_file(uploaded_file: Any) -> dict[str, Any]:
-    target_path = DATA_DIR / Path(uploaded_file.name).name
+def get_retriever(k: int = 4):
 
-    if hasattr(uploaded_file, "getbuffer"):
-        file_bytes = uploaded_file.getbuffer()
-    else:
-        file_bytes = uploaded_file.read()
+    base_retriever = get_parent_retriever(k=k)
 
-    with open(target_path, "wb") as file_handle:
-        file_handle.write(file_bytes)
+    compressor = FlashrankRerank(top_n=k)
 
-    return sync_file_to_vectorstore(target_path)
+    return ContextualCompressionRetriever(
+        base_compressor=compressor,
+        base_retriever=base_retriever,
+    )
 
 
-def sync_data_directory(directory: Path | str = DATA_DIR) -> list[dict[str, Any]]:
-    base_dir = Path(directory)
-    results: list[dict[str, Any]] = []
+def ingest_dbn_page(dbn_page_url: str) -> dict[str, Any]:
+    print("Checking if URL is already indexed...")
 
-    if not base_dir.exists():
-        return results
+    if _get_source_url_from_vectorstore(dbn_page_url):
+        print(f"   URL {dbn_page_url} is already indexed, skipping ingestion.")
+        return {"status": "unchanged", "message": "URL already indexed"}
 
-    for file_path in base_dir.iterdir():
-        if file_path.is_file() and file_path.suffix.lower() in SUPPORTED_EXTENSIONS:
-            results.append(sync_file_to_vectorstore(file_path))
+    print("Cleaning up old data (if any)...")
+    _delete_existing_source_chunks(vectorstore, dbn_page_url)
 
-    return results
+    print("Cleaning up data folder from old files...")
+    for file in DATA_DIR.glob("*"):
+        try:
+            file.unlink()
+            print(f"Deleted: {file.name}")
+        except Exception as e:
+            print(f"Unable to delete {file.name}: {e}")
 
+    print("Cleaning up docstore from old documents...")
+    for doc_file in DOCSTORE_DIR.glob("*"):
+        try:
+            doc_file.unlink()
+            print(f" Deleted old document: {doc_file.name}")
+        except Exception as e:
+            print(f"Failed to delete {doc_file.name}: {e}")
 
-def create_vectorstore(doc_splits):
-    vectorstore = get_vectorstore()
-    texts = [document.page_content for document in doc_splits]
-    metadatas = [document.metadata for document in doc_splits]
-    ids = [f"manual-{index}" for index in range(len(doc_splits))]
+    print(f"\nDownloading {dbn_page_url}...")
 
-    vectorstore.add_texts(texts=texts, metadatas=metadatas, ids=ids)
-    return vectorstore
+    filepath = download_pdf_from_dbn_page(dbn_page_url)
+    if not filepath:
+        return {"status": "failed", "error": "Could not download file"}
+
+    print(f"Processing {filepath.name}...")
+    docs = load_and_process_file(filepath)
+
+    print(f"Adding to vectorstore...")
+    result = ingest_documents(docs, source_url=dbn_page_url)
+
+    return {
+        **result,
+        "file": str(filepath),
+        "url": dbn_page_url,
+        "metadata": docs[0].metadata if docs else {},
+    }
 
 
 retriever = get_retriever()
