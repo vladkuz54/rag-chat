@@ -68,7 +68,11 @@ A retrieval-augmented generation (RAG) chatbot built with LangChain, LangGraph, 
    ```bash
    pip install -r requirements.txt
    ```
-
+   **or:**
+   ```bash
+   uv synv
+   ```
+   
 ## Configuration
 
 Before running the application, ensure you have:
