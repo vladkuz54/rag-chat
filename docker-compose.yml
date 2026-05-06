@@ -1,0 +1,10 @@
+version: 'version'
+
+services:
+  service_name:
+    image: rag-chat:1.0
+    ports:
+      - "8501:8501"
+    environment:
+      - OPENAI_API_KEY=your_openai_api_key
+

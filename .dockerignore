@@ -224,3 +224,5 @@ chroma_db
 ingestion_copy.py
 aa.py
 testing.py
+preprocessing
+docstore
