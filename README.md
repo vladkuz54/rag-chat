@@ -70,7 +70,7 @@ A retrieval-augmented generation (RAG) chatbot built with LangChain, LangGraph, 
    ```
    **or:**
    ```bash
-   uv synv
+   uv sync
    ```
    
 ## Configuration
