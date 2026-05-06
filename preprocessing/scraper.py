@@ -3,6 +3,8 @@ from pathlib import Path
 
 import requests
 
+from preprocessing import DATA_DIR
+
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
 
@@ -81,7 +83,7 @@ def download_pdf_from_dbn_page(dbn_page_url, filename_prefix=""):
                         else f"{pdf_name}{extension}"
                     )
 
-                filepath = Path(__file__).parent / "data" / filename
+                filepath = Path(DATA_DIR) / filename
                 filepath.parent.mkdir(exist_ok=True)
 
                 with open(filepath, "wb") as f:
@@ -126,7 +128,7 @@ def download_file(url):
                     extension = guess_extension(pdf_response, full_url)
                     filename = f"{pdf_name}{extension}"
 
-                filepath = Path(__file__).parent / "data" / filename
+                filepath = Path(DATA_DIR) / filename
                 filepath.parent.mkdir(exist_ok=True)
 
                 with open(filepath, "wb") as f:

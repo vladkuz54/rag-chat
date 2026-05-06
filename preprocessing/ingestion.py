@@ -1,4 +1,3 @@
-from preprocessing.parser import split_with_header_path, transform_into_markdown
 from pathlib import Path
 from typing import Any
 
@@ -10,14 +9,16 @@ from langchain_classic.retrievers.contextual_compression import (
 from langchain_community.document_compressors import FlashrankRerank
 from langchain_core.documents import Document
 
-from preprocessing import (
-    DATA_DIR,
-    DOCSTORE_DIR,
+from preprocessing import DATA_DIR, DOCSTORE_DIR
+from preprocessing.parser import (
+    child_splitter,
+    docstore,
+    parent_splitter,
+    split_with_header_path,
+    transform_into_markdown,
+    vectorstore,
 )
-
 from preprocessing.scraper import download_pdf_from_dbn_page
-
-from preprocessing.parser import (vectorstore, docstore, child_splitter, parent_splitter)
 
 
 def _get_source_url_from_vectorstore(source_url: str) -> bool:

@@ -11,11 +11,11 @@ from llama_cloud import LlamaCloud
 
 from preprocessing import (
     _HTML_TABLE,
-    _SPLITTER,
-    _SEPARATORS,
     _PAGE_MARKER,
     _PAGE_NUMBER,
     _PLACEHOLDER,
+    _SEPARATORS,
+    _SPLITTER,
     COLLECTION_NAME,
     DB_DIR,
     DOCSTORE_DIR,

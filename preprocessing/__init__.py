@@ -16,7 +16,9 @@ DATA_DIR.mkdir(exist_ok=True)
 DB_DIR.mkdir(exist_ok=True)
 DOCSTORE_DIR.mkdir(exist_ok=True)
 
-_SEPARATORS = RecursiveCharacterTextSplitter.get_separators_for_language(Language.MARKDOWN)
+_SEPARATORS = RecursiveCharacterTextSplitter.get_separators_for_language(
+    Language.MARKDOWN
+)
 _HTML_TABLE = re.compile(r"<table[\s\S]*?</table>", re.IGNORECASE)
 _PLACEHOLDER = re.compile(r"TBLS(\d{4})TBLS")
 _HEADERS_TO_SPLIT = [
